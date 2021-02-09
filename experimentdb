@@ -1,0 +1,98 @@
+#!/bin/bash
+
+
+# ------------------------------
+# Variables
+
+DEBUG=true
+
+run_dir="/run/postgresql"
+
+# these are for use with a local disk
+# data_dir="/mnt/data-experiments/experimentdb"
+# pgrep_regex="postgres.*[/]mnt[/]data-experiments[/]experimentdb"
+
+# these are for use with a zfs pool
+zfs_pool_name="xhcadb"
+datadir_name="experimentdb"
+
+data_dir="/${zfs_pool_name}/${datadir_name}"
+pgrep_regex="postgres.*[/]${zfs_pool_name}[/]${datadir_name}"
+log_filepath="${data_dir}/main.log"
+
+path_to_pgctl="/usr/bin/pg_ctl"
+if [[ ! -f "${path_to_pgctl}" && -f "/usr/lib/postgresql/13/bin/pg_ctl" ]]; then
+    path_to_pgctl="/usr/lib/postgresql/13/bin/pg_ctl"
+fi
+
+if [[ ! -f "${path_to_pgctl}" ]]; then
+    echo "Could not find path to binary 'pg_ctl'"
+    exit 1
+fi
+
+
+# ------------------------------
+# Functions
+
+postgres_cmd() {
+    input_cmd=$1
+
+    # first make sure that the database directory exists
+    if [[ -d "${data_dir}" ]]; then
+        sudo su postgres -c "${path_to_pgctl} -D ${data_dir} -l ${log_filepath} ${input_cmd}"
+    else
+        ${DEBUG} && echo "Database data directory not found..."
+    fi
+}
+
+start_db() {
+    if [[ -z $(pgrep -f "${pgrep_regex}") ]]; then
+        ${DEBUG} && echo "Starting Database..."
+        postgres_cmd "start"
+    fi
+}
+
+stop_db() {
+    ${DEBUG} && echo "Stopping Database..."
+    postgres_cmd "stop"
+}
+
+status_db() {
+    postgres_cmd "status"
+}
+
+init_db() {
+    postgres_cmd init
+}
+
+# make the postgres run dir, where it writes a file if it's running
+prepare_run_dir() {
+
+    if [[ ! -d "${run_dir}" ]]; then
+        ${DEBUG} && echo "Creating run directory for PostgreSQL..."
+
+        sudo mkdir "${run_dir}"
+        sudo chown -R root:postgres "${run_dir}"
+        sudo chmod g+w "${run_dir}"
+    else
+        ${DEBUG} && echo "PostgreSQL run directory already exists..."
+    fi
+}
+
+
+# ------------------------------
+# Main Logic
+
+db_cmd=${1:?"Error: missing required command"}
+
+prepare_run_dir
+
+case ${db_cmd} in
+    start)  start_db;;
+
+    stop)   stop_db;;
+
+    status) status_db;;
+
+    init) init_db;;
+esac
