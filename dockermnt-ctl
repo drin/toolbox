@@ -1,0 +1,76 @@
+#!/usr/bin/bash
+
+# ------------------------------
+# Reference Variables
+docker_daemon_dir="/etc/docker"
+docker_daemon_symlink="/etc/docker/daemon.json"
+
+
+# ------------------------------
+# Functions
+function ls_configs() {
+    pushd "${docker_daemon_dir}" > /dev/null
+
+    echo "daemon configurations:"
+    find "${docker_daemon_dir}" -type f -name '*daemon.json' -printf "\t%p\n"
+
+    popd > /dev/null
+
+}
+
+function set_config() {
+    config_name_or_path=${1}
+    config_as_filepath="${docker_daemon_dir}/${config_name_or_path}"
+
+    if [[ -f "${config_as_filepath}" ]]; then
+        echo "Using config file: '${config_as_filepath}'"
+
+        [[ -h "${docker_daemon_symlink}" ]] && rm "${docker_daemon_symlink}"
+        ln -s "${config_as_filepath}" "${docker_daemon_symlink}"
+
+    else
+        matched_configs=($(ls ${docker_daemon_dir} | grep "${config_name_or_path}.*daemon.json"))
+        num_matches=${#matched_configs[@]}
+
+        matched_config_filepath="${docker_daemon_dir}/${matched_configs[0]}"
+
+        if [[ -f "${matched_config_filepath}" ]]; then
+            echo "Using first matched config (${num_matches} matches):"
+            echo -e "\t${matched_config_filepath}"
+
+            rm "${docker_daemon_symlink}"
+            ln -s "${matched_config_filepath}" "${docker_daemon_symlink}"
+
+        else
+            echo "First matched config file does not exist:"
+            echo -e "\t'${matched_config_filepath}'"
+
+        fi
+
+    fi
+}
+
+
+# ------------------------------
+# Main
+cmdlist_help="[ ls | set <daemon config name> ]"
+ctl_cmd=${1?"Please provide a command: ${cmdlist_help}"}
+
+case ${ctl_cmd} in
+    ls)
+        ls_configs
+        ;;
+
+    set)
+        set_config ${2?"set requires a config name (prefix or filename)"}
+        ;;
+
+    *)
+        echo "Unknown command: '${ctl_cmd}'"
+        echo "Try one of: ${cmdlist_help}"
+        ;;
+esac
+
+# so that we can see the result
+echo "current configuration:"
+echo -e "\t$(ls --color=auto -F "${docker_daemon_symlink}") -> $(readlink -e "${docker_daemon_symlink}")"
