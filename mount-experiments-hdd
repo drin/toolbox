@@ -1,0 +1,33 @@
+#!/usr/bin/bash
+
+# ------------------------------
+# Reference Variables
+partition_label="DataExperimentsHDD"
+path_to_dev_symlink="/dev/disk/by-partlabel/${partition_label}"
+
+
+# ------------------------------
+# Logic for finding the device for the partition label, and then finding where it is mounted
+
+# "-h" tests if the string is an existing symbolic link
+if [[ -h "${path_to_dev_symlink}" ]]; then
+    scsi_mnt_name=$(basename $(readlink -e "${path_to_dev_symlink}"))
+
+    # -n omits header; -o specifies what output attributes to print
+    mounted_path=$(findmnt -no target --source "/dev/${scsi_mnt_name}")
+
+    # Nothing to do
+    if [[ -n "${mounted_path}" && -e "${mounted_path}" ]]; then
+        echo "Partition is mounted at: '${mounted_path}'"
+
+    # We should do something; but for now just output messages
+    else
+        [[ ! -n "${mounted_path}" ]] && echo "Partition is not yet mounted"
+        [[ ! -e "${mounted_path}" ]] && echo "Mount path does not exist"
+
+    fi
+
+else
+    echo "Could not find partition symlink: '${path_to_dev_symlink}'"
+
+fi
