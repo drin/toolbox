@@ -1,2 +1,15 @@
-# toolbox
-Repository where utility scripts will be kept. Mostly automation utilities, maybe other things on occassion.
+# Startup
+
+Things to start when computer boots:
+* ZFS
+* SSH Agent
+* keybase
+* dhcpcd client
+
+Also:
+* Kinetic network
+  * configure link
+  * restore ip tables
+  * dhcpd server
+  * set ip_forward to 1
+* chown disks for virtualbox passthroughs
