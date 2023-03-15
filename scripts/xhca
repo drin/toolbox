@@ -1,0 +1,73 @@
+#!/bin/bash
+
+
+# ------------------------------
+# Variables
+
+DEBUG=false
+
+run_dir="/run/postgresql"
+data_dir="/raiddata/data/postgres"
+
+log_filepath="${data_dir}/main.log"
+
+
+# ------------------------------
+# Functions
+
+postgres_cmd() {
+    input_cmd=$1
+
+    # first make sure that the database directory exists
+    if [[ -d "${data_dir}" ]]; then
+        sudo su postgres -c "pg_ctl -D ${data_dir} -l ${log_filepath} ${input_cmd}"
+    else
+        ${DEBUG} && echo "Database data directory not found..."
+    fi
+}
+
+start_db() {
+    if [[ -z $(pgrep -f "postgres.*[/]raiddata[/]data[/]postgres") ]]; then
+        ${DEBUG} && echo "Starting Database..."
+        postgres_cmd "start"
+    fi
+}
+
+stop_db() {
+    ${DEBUG} && echo "Stopping Database..."
+    postgres_cmd "stop"
+}
+
+status_db() {
+    postgres_cmd "status"
+}
+
+# make the postgres run dir, where it writes a file if it's running
+prepare_run_dir() {
+
+    if [[ ! -d "${run_dir}" ]]; then
+        ${DEBUG} && echo "Creating run directory for PostgreSQL..."
+
+        sudo mkdir "${run_dir}"
+        sudo chown -R root:postgres "${run_dir}"
+        sudo chmod g+w "${run_dir}"
+    else
+        ${DEBUG} && echo "PostgreSQL run directory already exists..."
+    fi
+}
+
+
+# ------------------------------
+# Main Logic
+
+db_cmd=${1:?"Error: missing required command"}
+
+prepare_run_dir
+
+case ${db_cmd} in
+    start)  start_db;;
+
+    stop)   stop_db;;
+
+    status) status_db;;
+esac
